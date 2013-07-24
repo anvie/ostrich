@@ -11,9 +11,8 @@ import scala.collection.immutable.HashMap
 import com.twitter.logging.Logger
 import org.apache.cassandra.utils.UUIDGen
 import java.text.SimpleDateFormat
-import com.netflix.astyanax.model.ColumnFamily
-import java.util.{UUID, Date}
-import com.netflix.astyanax.serializers.{StringSerializer, TimeUUIDSerializer}
+import java.util.{TimeZone, Calendar, UUID, Date}
+import org.apache.commons.lang.time.DateUtils
 
 /**
  * Author: robin
@@ -41,12 +40,11 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
   extends PeriodicBackgroundProcess("CassandraBackedCollector", period) {
 
   import scala.collection.JavaConversions._
-  import com.twitter.util.Time._
 
   protected val logger = Logger.get()
 
 
-  private lazy val cb =
+  private val cb =
     new AstyanaxContext.Builder()
       .forCluster(clusterName)
       .forKeyspace(keyspaceName)
@@ -65,8 +63,11 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
         .setSeeds(seeds)
       )
       .withConnectionPoolMonitor(new Slf4jConnectionPoolMonitorImpl)
-  private lazy val ctx = cb.buildKeyspace(ThriftFamilyFactory.getInstance())
-  private lazy val keyspace = ctx.getClient
+  private val ctx = cb.buildKeyspace(ThriftFamilyFactory.getInstance())
+  private val keyspace = {
+    ctx.start()
+    ctx.getClient
+  }
   private val cluster = {
     val cc = cb.buildCluster(ThriftFamilyFactory.getInstance())
     cc.start()
@@ -80,6 +81,8 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
 
   private val df = new SimpleDateFormat("yyyyMMdd")
 
+  private def dateNowF = df.format(new Date())
+
   /**
    * Implement the periodic event here.
    */
@@ -87,10 +90,8 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
 
     val stats = listener.get()
 
-    val date = df.format(new Date())
-
     for( (k , v) <- stats.counters ){
-      insert(k + "-" + date, v)
+      insert(k + "-" + dateNowF, v)
     }
 
   }
@@ -102,8 +103,34 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
   def insert(key:String, colName:UUID, colValue:Double){
     logger.info("inserting key: %s, colName: %s, colValue: %s".format(key, colName, colValue))
     keyspace.prepareColumnMutation[String, UUID](COLUMN_FAMILY, key, colName)
-      .putValue(colValue, null) // TTL for one week
+      .putValue(colValue, 604800) // TTL for one week
       .execute()
+  }
+
+  def get(key:String, date:Date, limit:Int) = {
+
+    /**
+     * Testing get data
+     */
+    val start = UUIDGen.minTimeUUID(DateUtils.addDays(date, -1).getTime)
+    val end = UUIDGen.maxTimeUUID(DateUtils.addDays(date, 1).getTime)
+    val cols = keyspace.prepareQuery(COLUMN_FAMILY)
+      .getKey(key + "-" + df.format(date))
+      .withColumnRange(end, start, true, limit)
+      .execute().getResult
+
+    for (col <- cols)
+      yield (col.getName.timestamp(), col.getDoubleValue)
+
+
+  }
+
+  def uuidTimestampToUtc(ts:Long):Long = {
+    val uuidEpoch = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    uuidEpoch.clear()
+    uuidEpoch.set(1582, 9, 15, 0, 0, 0); // 9 = October
+    val epochMillis = uuidEpoch.getTime().getTime()
+    (ts / 10000L) + epochMillis
   }
 
 
