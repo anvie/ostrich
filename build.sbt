@@ -12,6 +12,8 @@ javacOptions in doc := Seq("-source", "1.6")
 
 parallelExecution in Test := false
 
+net.virtualvoid.sbt.graph.Plugin.graphSettings
+
 resolvers += "twitter repo" at "http://maven.twttr.com"
 
 libraryDependencies ++= Seq(
@@ -19,7 +21,11 @@ libraryDependencies ++= Seq(
   "com.twitter" %% "util-eval" % "6.3.7",
   "com.twitter" %% "util-logging" % "6.3.7",
   "com.twitter" %% "util-jvm" % "6.3.7",
-  "com.twitter" %% "scala-json" % "3.0.1"
+  "com.twitter" %% "scala-json" % "3.0.1",
+  "com.netflix.astyanax" % "astyanax-core" % "1.56.37",
+  "com.netflix.astyanax" % "astyanax-cassandra" % "1.56.37",
+  "com.netflix.astyanax" % "astyanax-thrift" % "1.56.37",
+  "com.netflix.astyanax" % "astyanax-recipes" % "1.56.37"
 )
 
 libraryDependencies ++= Seq(

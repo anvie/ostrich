@@ -63,7 +63,7 @@ class GraphiteStatsLogger(val host: String, val port: Int, val period: Duration,
   val logger = Logger.get()
 
   val listener = new StatsListener(collection)
-  val hostname = InetAddress.getLocalHost.getCanonicalHostName
+//  val hostname = InetAddress.getLocalHost.getCanonicalHostName
 
   def periodic() {
     try {
