@@ -1,7 +1,7 @@
 package com.twitter.ostrich.stats
 
 import com.twitter.ostrich.admin.{PeriodicBackgroundProcess, AdminHttpService, StatsReporterFactory}
-import com.twitter.util.Duration
+import com.twitter.util.{Time, Duration}
 import com.netflix.astyanax.AstyanaxContext
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl
 import com.netflix.astyanax.connectionpool.NodeDiscoveryType
@@ -22,23 +22,40 @@ import org.apache.commons.lang.time.DateUtils
  */
 
 
-
+/**
+ * Create cassandra backed stats collection.
+ * @param clusterName
+ * @param keyspaceName
+ * @param seeds
+ * @param TTL
+ * @param period
+ */
 class CassandraBackedStatsFactory(val clusterName:String, val keyspaceName:String,
-                                  val seeds:String,
+                                  val seeds:String, val TTL:Int,
                                   val period:Duration) extends StatsReporterFactory {
   def apply(collection: StatsCollection, admin: AdminHttpService) =
     new CassandraBackedStats(clusterName,
-      keyspaceName, seeds, period, collection)
+      keyspaceName, seeds, period, TTL, collection)
 }
 
 
-
+/**
+ * Save stats into cassandra database.
+ * @param clusterName cassandra cluster name.
+ * @param keyspaceName cassandra keyspace name.
+ * @param seeds cassandra seeds.
+ * @param period period.
+ * @param TTL time to live.
+ * @param collection collection.
+ */
 class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
                            val seeds:String,
                            val period:Duration,
+                           val TTL:Int,
                            collection:StatsCollection)
   extends PeriodicBackgroundProcess("CassandraBackedCollector", period) {
 
+  import com.twitter.conversions.time._
   import scala.collection.JavaConversions._
 
   protected val logger = Logger.get()
@@ -74,12 +91,15 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
     cc
   }
 
-
   private lazy val COLUMN_FAMILY = CassandraBackedStatsConstant.COLUMN_FAMILY
 
   val listener = new StatsListener(collection)
 
   private val df = new SimpleDateFormat("yyyyMMdd")
+
+  private val PERCENTILES = List(0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 0.999, 0.9999)
+  private val EMPTY_TIMINGS = List.fill(PERCENTILES.size)(0L)
+  private var lastCollection: Time = Time.now
 
   private def dateNowF = df.format(new Date())
 
@@ -91,8 +111,20 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
     val stats = listener.get()
 
     for( (k , v) <- stats.counters ){
-      insert(k + "-" + dateNowF, v)
+      insert("counter:" + k + "-" + dateNowF, v)
     }
+
+    for( (k , v) <- stats.gauges ){
+      insert("gauge:" + k + "-" + dateNowF, v)
+    }
+
+    stats.metrics.flatMap { case (key, distribution) =>
+      distribution.toMap.map { case (subKey, value) =>
+        insert("metric:" + key + "_" + subKey + "-" + dateNowF, value)
+      }
+    }
+
+    lastCollection = Time.now
 
   }
 
@@ -103,26 +135,38 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
   def insert(key:String, colName:UUID, colValue:Double){
     logger.info("inserting key: %s, colName: %s, colValue: %s".format(key, colName, colValue))
     keyspace.prepareColumnMutation[String, UUID](COLUMN_FAMILY, key, colName)
-      .putValue(colValue, 604800) // TTL for one week
+      .putValue(colValue, TTL)
       .execute()
   }
 
-  def get(key:String, date:Date, limit:Int) = {
+  /**
+   * Get latest metrics data limited by :limit.
+   * @param kind metrics kind, can be one of: counter, gauge, metric.
+   * @param key metric key.
+   * @param date date range.
+   * @param limit limit.
+   * @return
+   */
+  def get(kind:String, key:String, date:Date, limit:Int):List[List[AnyVal]] = {
 
-    /**
-     * Testing get data
-     */
+    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds).toList
+
     val start = UUIDGen.minTimeUUID(DateUtils.addDays(date, -1).getTime)
     val end = UUIDGen.maxTimeUUID(DateUtils.addDays(date, 1).getTime)
     val cols = keyspace.prepareQuery(COLUMN_FAMILY)
-      .getKey(key + "-" + df.format(date))
+      .getKey(kind + ":" + key + "-" + df.format(date))
       .withColumnRange(end, start, true, limit)
       .execute().getResult
 
-    for (col <- cols)
-      yield (col.getName.timestamp(), col.getDoubleValue)
+    var timings = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()), x.getDoubleValue)).toList
+    timings =
+    if (timings.length < 60)
+      List.fill(60 - timings.length)(List(0,0.0)) ++ timings
+    else
+      timings.slice(0, 60-1)
+    val data = times.zip(timings).map { case (a, b) => a :: b(1) :: Nil }
 
-
+    data
   }
 
   def uuidTimestampToUtc(ts:Long):Long = {

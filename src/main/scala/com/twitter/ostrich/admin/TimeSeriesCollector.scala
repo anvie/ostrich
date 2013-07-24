@@ -72,7 +72,8 @@ class TimeSeriesCollector(collection: StatsCollection) extends Service {
         val data = PERCENTILES.map { percent =>
           v.histogram.getPercentile(percent).toLong
         }
-        hourlyTimings.getOrElseUpdate("metric:" + k, new TimeSeries[List[Long]](60, EMPTY_TIMINGS)).add(data)
+        hourlyTimings.getOrElseUpdate("metric:" + k,
+          new TimeSeries[List[Long]](60, EMPTY_TIMINGS)).add(data)
       }
       lastCollection = Time.now
     }
