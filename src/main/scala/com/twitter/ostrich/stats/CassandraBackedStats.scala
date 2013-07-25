@@ -55,7 +55,6 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
                            collection:StatsCollection)
   extends PeriodicBackgroundProcess("CassandraBackedCollector", period) {
 
-  import com.twitter.conversions.time._
   import scala.collection.JavaConversions._
 
   protected val logger = Logger.get()
@@ -149,17 +148,7 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
     val timings: List[List[Long]] = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()) / 1000,
       x.getDoubleValue.toLong)).toList
 
-    if (timings.length < 60){
-      val x = scala.collection.immutable.TreeMap(times.map(z => (z, 0L)): _*) ++
-        scala.collection.immutable.TreeMap(timings.map(a => (a(0),a(1))).toSeq: _*)
-      val z = x.map(y => List(y._1, y._2)).toList
-      if (z.length > 60){
-        z.slice(60-z.length-1,z.length)
-      }else
-        z
-    }
-    else
-      timings.reverse.slice(0, 60-1)
+    timings
   }
 
   /**
@@ -172,19 +161,26 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
    */
   def get(kind:String, key:String, date:Date, limit:Int):List[List[Long]] = {
 
-    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds.toLong).toList
+    import scala.collection.mutable
 
-    val data = kind match {
-      case "metric" =>
-        getInternal(kind + ":" + key + "_msec_p50" + "-" + df.format(date), date, times, limit) ++
-        getInternal(kind + ":" + key + "_msec_minimum" + "-" + df.format(date), date, times, limit) ++
-        getInternal(kind + ":" + key + "_msec_average" + "-" + df.format(date), date, times, limit) ++
-        getInternal(kind + ":" + key + "_msec_maximum" + "-" + df.format(date), date, times, limit)
-      case _ =>
-        getInternal(kind + ":" + key + "-" + df.format(date), date, times, limit)
+    val formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
+    val cal = Calendar.getInstance()
+    cal.set(Calendar.SECOND, 1)
+    val todayWithZeroTime = formatter.parse(formatter.format(cal.getTime))
+
+
+    val times = (for (i <- 0 until 60) yield ((todayWithZeroTime.getTime / 1000) - (i*60))).toList
+    val timings = getInternal(kind + ":" + key + "-" + df.format(date), date, times, limit)
+
+    var rv = mutable.Map(times.map(x => (x, 0L)).toSeq: _*)
+    for ( t <- timings ){
+      rv += t(0) -> t(1)
     }
 
-    data
+    val z = rv.map(x => List(x._1, x._2)).toList.sortBy(_(0)).reverse
+
+    z.slice(z.length - 60, 60)
+
   }
 
   /**
@@ -195,13 +191,40 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
    * @return
    */
   def getTimes(key:String, date:Date, limit:Int):List[List[List[Long]]] = {
-    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds.toLong).toList
+
+    import scala.collection.mutable
+
+    val formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
+    val cal = Calendar.getInstance()
+    cal.set(Calendar.SECOND, 1)
+    val todayWithZeroTime = formatter.parse(formatter.format(cal.getTime))
+
+
+    val times = (for (i <- 0 until 60) yield ((todayWithZeroTime.getTime / 1000) - (i*60))).toList
+
+    val timings =
     getInternal("metric:" + key + "_msec_p50" + "-" + df.format(date), date, times, limit) ::
       getInternal("metric:" + key + "_msec_minimum" + "-" + df.format(date), date, times, limit) ::
       getInternal("metric:" + key + "_msec_average" + "-" + df.format(date), date, times, limit) ::
       getInternal("metric:" + key + "_msec_maximum" + "-" + df.format(date), date, times, limit) :: Nil
+
+    var rv = List.empty[List[List[Long]]]
+    for ( t <- timings){
+      var m = mutable.Map(times.map(x => (x, 0L)).toSeq: _*)
+      for ( z <- t ){
+        m += z(0) -> z(1)
+      }
+      rv :+= m.map(x => List(x._1, x._2)).toList.sortBy(_(0)).reverse
+    }
+
+    rv
   }
 
+  /**
+   * Convert UUID timestamp to epoch time UTC.
+   * @param ts UUID timestamp.
+   * @return
+   */
   def uuidTimestampToUtc(ts:Long):Long = {
     val uuidEpoch = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
     uuidEpoch.clear()
