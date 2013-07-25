@@ -24,11 +24,11 @@ import org.apache.commons.lang.time.DateUtils
 
 /**
  * Create cassandra backed stats collection.
- * @param clusterName
- * @param keyspaceName
- * @param seeds
- * @param TTL
- * @param period
+ * @param clusterName cassandra cluster name.
+ * @param keyspaceName cassandra keyspace name.
+ * @param seeds cassandra seeds.
+ * @param period period.
+ * @param TTL time to live.
  */
 class CassandraBackedStatsFactory(val clusterName:String, val keyspaceName:String,
                                   val seeds:String, val TTL:Int,
@@ -96,9 +96,6 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
   val listener = new StatsListener(collection)
 
   private val df = new SimpleDateFormat("yyyyMMdd")
-
-  private val PERCENTILES = List(0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 0.999, 0.9999)
-  private val EMPTY_TIMINGS = List.fill(PERCENTILES.size)(0L)
   private var lastCollection: Time = Time.now
 
   private def dateNowF = df.format(new Date())
@@ -149,7 +146,7 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
    */
   def get(kind:String, key:String, date:Date, limit:Int):List[List[AnyVal]] = {
 
-    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds).toList
+    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds.toLong).toList
 
     val start = UUIDGen.minTimeUUID(DateUtils.addDays(date, -1).getTime)
     val end = UUIDGen.maxTimeUUID(DateUtils.addDays(date, 1).getTime)
@@ -158,12 +155,20 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
       .withColumnRange(end, start, true, limit)
       .execute().getResult
 
-    var timings = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()), x.getDoubleValue)).toList
+    var timings: List[List[Long]] = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()) / 1000,
+      x.getDoubleValue.toLong)).toList
     timings =
-    if (timings.length < 60)
-      List.fill(60 - timings.length)(List(0,0.0)) ++ timings
+    if (timings.length < 60){
+      val x = scala.collection.immutable.TreeMap(times.map(z => (z, 0L)): _*) ++
+      scala.collection.immutable.TreeMap(timings.map(a => (a(0),a(1))).toSeq: _*)
+      val z = x.map(y => List(y._1, y._2)).toList
+      if (z.length > 60){
+        z.slice(60-z.length-1,z.length)
+      }else
+        z
+    }
     else
-      timings.slice(0, 60-1)
+      timings.reverse.slice(0, 60-1)
     val data = times.zip(timings).map { case (a, b) => a :: b(1) :: Nil }
 
     data
