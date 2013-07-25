@@ -136,31 +136,22 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
       .execute()
   }
 
-  /**
-   * Get latest metrics data limited by :limit.
-   * @param kind metrics kind, can be one of: counter, gauge, metric.
-   * @param key metric key.
-   * @param date date range.
-   * @param limit limit.
-   * @return
-   */
-  def get(kind:String, key:String, date:Date, limit:Int):List[List[AnyVal]] = {
-
-    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds.toLong).toList
+  private def getInternal(key:String, date:Date, times:List[Long], limit:Int):List[List[Long]] = {
 
     val start = UUIDGen.minTimeUUID(DateUtils.addDays(date, -1).getTime)
     val end = UUIDGen.maxTimeUUID(DateUtils.addDays(date, 1).getTime)
+
     val cols = keyspace.prepareQuery(COLUMN_FAMILY)
-      .getKey(kind + ":" + key + "-" + df.format(date))
+      .getKey(key)
       .withColumnRange(end, start, true, limit)
       .execute().getResult
 
-    var timings: List[List[Long]] = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()) / 1000,
+    val timings: List[List[Long]] = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()) / 1000,
       x.getDoubleValue.toLong)).toList
-    timings =
+
     if (timings.length < 60){
       val x = scala.collection.immutable.TreeMap(times.map(z => (z, 0L)): _*) ++
-      scala.collection.immutable.TreeMap(timings.map(a => (a(0),a(1))).toSeq: _*)
+        scala.collection.immutable.TreeMap(timings.map(a => (a(0),a(1))).toSeq: _*)
       val z = x.map(y => List(y._1, y._2)).toList
       if (z.length > 60){
         z.slice(60-z.length-1,z.length)
@@ -169,9 +160,46 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
     }
     else
       timings.reverse.slice(0, 60-1)
-    val data = times.zip(timings).map { case (a, b) => a :: b(1) :: Nil }
+  }
+
+  /**
+   * Get latest metrics data limited by :limit.
+   * @param kind metrics kind, can be one of: counter, gauge, metric.
+   * @param key metric key.
+   * @param date date range.
+   * @param limit limit.
+   * @return
+   */
+  def get(kind:String, key:String, date:Date, limit:Int):List[List[Long]] = {
+
+    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds.toLong).toList
+
+    val data = kind match {
+      case "metric" =>
+        getInternal(kind + ":" + key + "_msec_p50" + "-" + df.format(date), date, times, limit) ++
+        getInternal(kind + ":" + key + "_msec_minimum" + "-" + df.format(date), date, times, limit) ++
+        getInternal(kind + ":" + key + "_msec_average" + "-" + df.format(date), date, times, limit) ++
+        getInternal(kind + ":" + key + "_msec_maximum" + "-" + df.format(date), date, times, limit)
+      case _ =>
+        getInternal(kind + ":" + key + "-" + df.format(date), date, times, limit)
+    }
 
     data
+  }
+
+  /**
+   * Get latest metrics data for p50, minimum, average, and maximum, limited by :limit.
+   * @param key metric key.
+   * @param date date range.
+   * @param limit limit.
+   * @return
+   */
+  def getTimes(key:String, date:Date, limit:Int):List[List[List[Long]]] = {
+    val times = (for (i <- 0 until 60) yield (lastCollection + (i - 59).minutes).inSeconds.toLong).toList
+    getInternal("metric:" + key + "_msec_p50" + "-" + df.format(date), date, times, limit) ::
+      getInternal("metric:" + key + "_msec_minimum" + "-" + df.format(date), date, times, limit) ::
+      getInternal("metric:" + key + "_msec_average" + "-" + df.format(date), date, times, limit) ::
+      getInternal("metric:" + key + "_msec_maximum" + "-" + df.format(date), date, times, limit) :: Nil
   }
 
   def uuidTimestampToUtc(ts:Long):Long = {
