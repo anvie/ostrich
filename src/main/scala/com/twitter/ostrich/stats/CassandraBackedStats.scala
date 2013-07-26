@@ -137,12 +137,12 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
 
   private def getInternal(key:String, date:Date, times:List[Long], limit:Int):List[List[Long]] = {
 
-    val start = UUIDGen.minTimeUUID(DateUtils.addDays(date, -1).getTime)
-    val end = UUIDGen.maxTimeUUID(DateUtils.addDays(date, 1).getTime)
+    val start = UUIDGen.minTimeUUID(DateUtils.addHours(date, 1).getTime)
+    val end = UUIDGen.maxTimeUUID(DateUtils.addHours(date, -1).getTime)
 
     val cols = keyspace.prepareQuery(COLUMN_FAMILY)
       .getKey(key)
-      .withColumnRange(end, start, true, limit)
+      .withColumnRange(start, end, true, limit)
       .execute().getResult
 
     val timings: List[List[Long]] = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()) / 1000,
@@ -179,7 +179,7 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
 
     val z = rv.map(x => List(x._1, x._2)).toList.sortBy(_(0)).reverse
 
-    z.slice(z.length - 60, 60)
+    z.slice(z.length - 60, (z.length - 60) + 60)
 
   }
 
@@ -214,7 +214,9 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
       for ( z <- t ){
         m += z(0) -> z(1)
       }
-      rv :+= m.map(x => List(x._1, x._2)).toList.sortBy(_(0)).reverse
+      val z = m.map(x => List(x._1, x._2)).toList.sortBy(_(0)).reverse
+
+      rv :+= z.slice(z.length - 60, (z.length - 60) + 60)
     }
 
     rv
