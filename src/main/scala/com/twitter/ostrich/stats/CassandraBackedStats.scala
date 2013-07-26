@@ -129,7 +129,7 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
   }
 
   def insert(key:String, colName:UUID, colValue:Double){
-    logger.info("inserting key: %s, colName: %s, colValue: %s".format(key, colName, colValue))
+//    logger.info("inserting key: %s, colName: %s, colValue: %s".format(key, colName, colValue))
     keyspace.prepareColumnMutation[String, UUID](COLUMN_FAMILY, key, colName)
       .putValue(colValue, TTL)
       .execute()
