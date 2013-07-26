@@ -1,6 +1,8 @@
+import java.text.SimpleDateFormat
+
 name := "ostrich"
 
-version := "9.1.2-digaku"
+version := "9.1.2.digaku-SNAPSHOT"
 
 organization := "com.twitter"
 
@@ -44,13 +46,32 @@ libraryDependencies ++= Seq(
 
 publishMavenStyle := true
 
-publishTo <<= version { (v: String) =>
-  val nexus = "https://oss.sonatype.org/"
-  if (v.trim.endsWith("SNAPSHOT"))
-    Some("sonatype-snapshots" at nexus + "content/repositories/snapshots")
+//publishTo <<= version { (v: String) =>
+//  val nexus = "https://oss.sonatype.org/"
+//  if (v.trim.endsWith("SNAPSHOT"))
+//    Some("sonatype-snapshots" at nexus + "content/repositories/snapshots")
+//  else
+//    Some("sonatype-releases"  at nexus + "service/local/staging/deploy/maven2")
+//}
+
+publishTo <<= version { (v:String) =>
+  val repoUrl = "http://scala.repo.ansvia.com/nexus"
+  if(v.trim.endsWith("SNAPSHOT") || """.+\-\d{8}+$""".r.pattern.matcher(v.trim).matches())
+    Some("snapshots" at repoUrl + "/content/repositories/snapshots")
   else
-    Some("sonatype-releases"  at nexus + "service/local/staging/deploy/maven2")
+    Some("releases" at repoUrl + "/service/local/staging/deploy/maven2")
 }
+
+version <<= version { (v:String) =>
+  if (v.trim.endsWith("-SNAPSHOT")){
+    val dateFormatter = new SimpleDateFormat("yyyyMMdd")
+    v.trim.split("-").apply(0) + "-" + dateFormatter.format(new java.util.Date()) + "-SNAPSHOT"
+  }else
+    v
+}
+
+credentials += Credentials(Path.userHome / ".ivy2" / ".credentials-ansvia")
+
 
 publishArtifact in Test := false
 
@@ -75,6 +96,11 @@ pomExtra := (
       <id>twitter</id>
       <name>Twitter Inc.</name>
       <url>https://www.twitter.com/</url>
+    </developer>
+    <developer>
+      <id>anvie</id>
+      <name>Robin Sy</name>
+      <url>https://www.twitter.com/anvie</url>
     </developer>
   </developers>
 )
