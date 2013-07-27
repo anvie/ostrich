@@ -59,6 +59,14 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
 
   protected val logger = Logger.get()
 
+  private val port = {
+    val s = seeds.split(":")
+    if (s.length > 1){
+      s(1).toInt
+    }else{
+      throw new Exception("invalid seeds format, should be [HOST-IP]:[PORT]")
+    }
+  }
 
   private val cb =
     new AstyanaxContext.Builder()
@@ -71,7 +79,7 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
         .setConnectionPoolType(ConnectionPoolType.ROUND_ROBIN)
       )
       .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl("ostrich-conn-poll")
-        .setPort(9160)
+        .setPort(port)
         .setMaxConnsPerHost(20)
         .setInitConnsPerHost(10)
         .setSocketTimeout(30000)
@@ -174,7 +182,11 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
 
     var rv = mutable.Map(times.map(x => (x, 0L)).toSeq: _*)
     for ( t <- timings ){
-      rv += t(0) -> t(1)
+      if (rv.contains(t(0))){
+        rv += t(0) -> (rv.getOrElse(t(0),0L) + t(1))
+      }else{
+        rv += t(0) -> t(1)
+      }
     }
 
     val z = rv.map(x => List(x._1, x._2)).toList.sortBy(_(0)).reverse
@@ -212,7 +224,11 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
     for ( t <- timings){
       var m = mutable.Map(times.map(x => (x, 0L)).toSeq: _*)
       for ( z <- t ){
-        m += z(0) -> z(1)
+        if (m.contains(z(0))){
+          m += z(0) -> (m.getOrElse(z(0), 0L) + z(1))
+        }else{
+          m += z(0) -> z(1)
+        }
       }
       val z = m.map(x => List(x._1, x._2)).toList.sortBy(_(0)).reverse
 
