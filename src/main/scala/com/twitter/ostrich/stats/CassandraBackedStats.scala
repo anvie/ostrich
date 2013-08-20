@@ -208,11 +208,12 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
 
     val formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
     val cal = Calendar.getInstance()
+    cal.setTime(date)
     cal.set(Calendar.SECOND, 1)
-    val todayWithZeroTime = formatter.parse(formatter.format(cal.getTime))
+    val todayFirstSecond = formatter.parse(formatter.format(cal.getTime))
 
 
-    val times = (for (i <- 0 until 60) yield ((todayWithZeroTime.getTime / 1000) - (i*60))).toList
+    val times = (for (i <- 0 until 60) yield ((todayFirstSecond.getTime / 1000) - (i*60))).toList
 
     val timings =
     getInternal("metric:" + key + "_msec_p50" + "-" + df.format(date), date, times, limit) ::
