@@ -55,6 +55,7 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
                            collection:StatsCollection)
   extends PeriodicBackgroundProcess("CassandraBackedCollector", period) {
 
+  import CassandraBackedStats._
   import scala.collection.JavaConversions._
 
   protected val logger = Logger.get()
@@ -72,20 +73,8 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
     new AstyanaxContext.Builder()
       .forCluster(clusterName)
       .forKeyspace(keyspaceName)
-      .withAstyanaxConfiguration(new AstyanaxConfigurationImpl()
-        .setCqlVersion("3.0.0")
-        .setTargetCassandraVersion("1.2")
-        .setDiscoveryType(NodeDiscoveryType.RING_DESCRIBE)
-        .setConnectionPoolType(ConnectionPoolType.ROUND_ROBIN)
-      )
-      .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl("ostrich-conn-poll")
-        .setPort(port)
-        .setMaxConnsPerHost(20)
-        .setInitConnsPerHost(10)
-        .setSocketTimeout(30000)
-        .setMaxTimeoutWhenExhausted(2000)
-        .setSeeds(seeds)
-      )
+      .withAstyanaxConfiguration(astyanaxConfig)
+      .withConnectionPoolConfiguration(poolConfig.setPort(port).setSeeds(seeds))
       .withConnectionPoolMonitor(new Slf4jConnectionPoolMonitorImpl)
   private val ctx = cb.buildKeyspace(ThriftFamilyFactory.getInstance())
   private val keyspace = {
@@ -315,3 +304,18 @@ class CassandraBackedStats(val clusterName:String, val keyspaceName:String,
   }
 }
 
+object CassandraBackedStats {
+
+  lazy val astyanaxConfig = new AstyanaxConfigurationImpl()
+    .setCqlVersion("3.0.0")
+    .setTargetCassandraVersion("1.2")
+    .setDiscoveryType(NodeDiscoveryType.RING_DESCRIBE)
+    .setConnectionPoolType(ConnectionPoolType.ROUND_ROBIN)
+
+  lazy val poolConfig = new ConnectionPoolConfigurationImpl("ostrich-conn-poll")
+    .setMaxConnsPerHost(20)
+    .setInitConnsPerHost(10)
+    .setSocketTimeout(30000)
+    .setMaxTimeoutWhenExhausted(2000)
+
+}
