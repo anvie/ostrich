@@ -2,7 +2,7 @@ import java.text.SimpleDateFormat
 
 name := "ostrich"
 
-version := "9.1.3.digaku-SNAPSHOT"
+version := "9.1.4.digaku-SNAPSHOT"
 
 organization := "com.twitter"
 
