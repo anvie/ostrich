@@ -52,38 +52,9 @@ class CassandraBackedStats(keyspace:Keyspace,
                            collection:StatsCollection)
   extends PeriodicBackgroundProcess("CassandraBackedCollector", period) {
 
-//  import CassandraBackedStats._
   import scala.collection.JavaConversions._
 
   protected val logger = Logger.get()
-
-//  private val port = {
-//    val s = seeds.split(":")
-//    if (s.length > 1){
-//      s(1).toInt
-//    }else{
-//      throw new Exception("invalid seeds format, should be [HOST-IP]:[PORT]")
-//    }
-//  }
-//
-//  private val cb =
-//    new AstyanaxContext.Builder()
-//      .forCluster(clusterName)
-//      .forKeyspace(keyspaceName)
-//      .withAstyanaxConfiguration(astyanaxConfig)
-//      .withConnectionPoolConfiguration(poolConfig.setPort(port).setSeeds(seeds))
-//      .withConnectionPoolMonitor(new Slf4jConnectionPoolMonitorImpl)
-//
-//  private val ctx = cb.buildKeyspace(ThriftFamilyFactory.getInstance())
-//  private val keyspace: Keyspace = {
-//    ctx.start()
-//    ctx.getClient
-//  }
-//  private val cluster: AstyanaxContext[Cluster] = {
-//    val cc = cb.buildCluster(ThriftFamilyFactory.getInstance())
-//    cc.start()
-//    cc
-//  }
 
   private lazy val COLUMN_FAMILY = CassandraBackedStatsConstant.COLUMN_FAMILY
 
@@ -162,17 +133,6 @@ class CassandraBackedStats(keyspace:Keyspace,
 
     getRange(key, startUUID, endUUID, limit)
 
-//    val pKey = key + postfix(key)
-//
-//    val cols = keyspace.prepareQuery(COLUMN_FAMILY)
-//      .getKey(pKey)
-//      .withColumnRange(startUUID, endUUID, true, limit)
-//      .execute().getResult
-//
-//    val timings: List[List[Long]] = cols.map(x => List(uuidTimestampToUtc(x.getName.timestamp()) / 1000,
-//      x.getDoubleValue.toLong)).toList
-//
-//    timings
   }
 
   /**
@@ -341,91 +301,5 @@ class CassandraBackedStats(keyspace:Keyspace,
     (ts / 10000L) + epochMillis
   }
 
-//
-//  private var keyspaceEnsured = false
-//  private def ensureKeyspaceExists(){
-//
-//    if (keyspaceEnsured)
-//      return
-//
-//    // ensure keyspace exists
-//    val ctx = cluster.getClient
-//
-//    var ksDef = ctx.describeKeyspace(keyspaceName)
-//
-//    if (ksDef == null){
-//      logger.warning("Keyspace " + keyspaceName + " didn't exists, creating first.")
-//      var hm = new HashMap[String, String]()
-//      hm += "replication_factor" -> "1"
-//      ksDef = ctx.makeKeyspaceDefinition()
-//        .setName(keyspaceName)
-//        .setStrategyClass("org.apache.cassandra.locator.SimpleStrategy")
-//        .setStrategyOptions(hm)
-//      ctx.addKeyspace(ksDef)
-//      logger.info("keyspace created: " + keyspaceName)
-//    }
-//
-//    keyspaceEnsured = true
-//  }
-//
-//  private def ensureColumnFamilyExists(name:String){
-//    val ctx = cluster.getClient
-//
-//    val ksDef = ctx.describeKeyspace(keyspaceName)
-//
-//    var found = false
-//    if (ksDef != null){
-//      for (cdef <- ksDef.getColumnFamilyList){
-//        found |= cdef.getName.equals(name)
-//      }
-//    }
-//
-//    if (!found){
-//      val cfDef = ctx.makeColumnFamilyDefinition()
-//        .setName(name)
-//        .setKeyspace(keyspaceName)
-//        .setComparatorType("org.apache.cassandra.db.marshal.TimeUUIDType")
-//      ctx.addColumnFamily(cfDef)
-//    }
-//
-//  }
-//
-//  override def start() {
-//    super.start()
-//    ensureKeyspaceExists()
-//    ensureColumnFamilyExists(CassandraBackedStatsConstant.COLUMN_FAMILY_NAME)
-//  }
-//
-//  override def stop() {
-//    logger.info("Stopping " + getClass.getSimpleName + "...")
-//    super.stop()
-//    ctx.shutdown()
-//    cluster.shutdown()
-//  }
+
 }
-//
-//object CassandraBackedStats {
-//
-//  lazy val astyanaxConfig = new AstyanaxConfigurationImpl()
-//    .setCqlVersion("3.0.0")
-//    .setTargetCassandraVersion("1.2")
-//    .setDiscoveryType(NodeDiscoveryType.RING_DESCRIBE)
-//    .setConnectionPoolType(ConnectionPoolType.ROUND_ROBIN)
-//
-//  lazy val poolConfig = new ConnectionPoolConfigurationImpl("ostrich-conn-poll")
-//    .setMaxConnsPerHost(20)
-//    .setInitConnsPerHost(10)
-//    .setSocketTimeout(30000)
-//    .setMaxTimeoutWhenExhausted(2000)
-//
-//  def builder(clusterName:String, keyspaceName:String, seeds:String, port:Int) =
-//    new AstyanaxContext.Builder()
-//      .forCluster(clusterName)
-//      .forKeyspace(keyspaceName)
-//      .withAstyanaxConfiguration(astyanaxConfig)
-//      .withConnectionPoolConfiguration(poolConfig.setPort(port).setSeeds(seeds))
-//      .withConnectionPoolMonitor(new Slf4jConnectionPoolMonitorImpl)
-//
-//
-//
-//}
