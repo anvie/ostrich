@@ -1,3 +1,40 @@
+9.4.0
+-----
+release: 14 March 2014
+
+- release util version 6.13.0
+
+9.3.1
+-----
+release: 18 February 2014
+
+- release util version 6.12.1
+
+9.3.0
+-----
+release: 14 February 2014
+
+- release util version 6.12.0
+
+9.2.1
+-----
+release: 15 November 2013
+
+- Upgrade util version to 6.8.1
+- ostrich & twitter-server: jvm ByteBuffer pool stats
+
+9.2.0
+-----
+release: 12 November 2013
+
+- ostrich: remove boxing from Histogram's primary call, add()
+
+9.1.3
+-----
+release: 13 September 2013
+
+- Add jvm_current_mem_* metrics
+
 9.1.2
 -----
 release: 25 June 2013

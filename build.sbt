@@ -1,4 +1,4 @@
-import java.text.SimpleDateFormat
+/*import java.text.SimpleDateFormat
 
 name := "ostrich"
 
@@ -104,3 +104,4 @@ pomExtra := (
     </developer>
   </developers>
 )
+*/
