@@ -20,7 +20,11 @@ object Ostrich extends Build {
       "com.twitter" %% "util-eval" % utilVersion,
       "com.twitter" %% "util-logging" % utilVersion,
       "com.twitter" %% "util-jvm" % utilVersion,
-      "com.twitter" %% "scala-json" % "3.0.1"
+      "com.twitter" %% "scala-json" % "3.0.1",
+      "com.netflix.astyanax" % "astyanax-core" % "1.56.37",
+      "com.netflix.astyanax" % "astyanax-cassandra" % "1.56.37",
+      "com.netflix.astyanax" % "astyanax-thrift" % "1.56.37",
+      "com.netflix.astyanax" % "astyanax-recipes" % "1.56.37"
     ),
 
     libraryDependencies ++= Seq(
