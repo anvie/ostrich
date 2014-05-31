@@ -13,6 +13,8 @@ import org.apache.cassandra.utils.UUIDGen
 import java.text.SimpleDateFormat
 import java.util.{TimeZone, Calendar, UUID, Date}
 import org.apache.commons.lang.time.DateUtils
+import com.netflix.astyanax.retry.BoundedExponentialBackoff
+import com.netflix.astyanax.model.ConsistencyLevel
 
 /**
  * Author: robin
@@ -106,8 +108,10 @@ class CassandraBackedStats(keyspace:Keyspace,
       null
 
     keyspace.prepareColumnMutation[String, UUID](COLUMN_FAMILY, key, colName)
+      .withRetryPolicy(new BoundedExponentialBackoff(250, 5000, 10))
+      .setConsistencyLevel(ConsistencyLevel.CL_ANY)
       .putValue(colValue, ttl)
-      .execute()
+      .executeAsync()
   }
 
   private def getLastHourInternal(key:String, limit:Int):List[List[Long]] = {
