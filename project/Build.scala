@@ -11,7 +11,7 @@ object Ostrich extends Build {
     name := "ostrich_digaku",
     version := libVersion,
     organization := "com.twitter",
-    crossScalaVersions := Seq("2.9.2", "2.10.0"),
+    crossScalaVersions := Seq("2.9.2", "2.10.4"),
     javacOptions ++= Seq("-source", "1.6", "-target", "1.6"),
     javacOptions in doc := Seq("-source", "1.6"),
     parallelExecution in Test := false,
@@ -31,7 +31,7 @@ object Ostrich extends Build {
     libraryDependencies ++= Seq(
       "org.scala-tools.testing" %% "specs" % "1.6.9" % "test" cross CrossVersion.binaryMapped {
         case "2.9.2" => "2.9.1"
-        case "2.10.0" => "2.10"
+        case x if x.startsWith("2.10") => "2.10"
         case x => x
       },
       "junit" % "junit" % "4.8.1" % "test",
