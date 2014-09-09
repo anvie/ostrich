@@ -343,7 +343,7 @@ class CommandRequestHandler(commandHandler: CommandHandler) extends CgiRequestHa
         render("no such command\n", exchange, 404)
       case e: InvalidCommandOptionError =>
         render(e.getMessage + '\n', exchange, 400)
-      case unknownException =>
+      case unknownException:Throwable =>
         render("error processing command: " + unknownException, exchange, 500)
         unknownException.printStackTrace()
     }

@@ -2,19 +2,14 @@ package com.twitter.ostrich.stats
 
 import com.twitter.ostrich.admin.{PeriodicBackgroundProcess, AdminHttpService, StatsReporterFactory}
 import com.twitter.util.{Time, Duration}
-import com.netflix.astyanax.{Cluster, Keyspace, AstyanaxContext}
-import com.netflix.astyanax.impl.AstyanaxConfigurationImpl
-import com.netflix.astyanax.connectionpool.NodeDiscoveryType
-import com.netflix.astyanax.connectionpool.impl.{ConnectionPoolType, ConnectionPoolConfigurationImpl, Slf4jConnectionPoolMonitorImpl}
-import com.netflix.astyanax.thrift.ThriftFamilyFactory
-import scala.collection.immutable.HashMap
+import com.netflix.astyanax.Keyspace
 import com.twitter.logging.Logger
 import org.apache.cassandra.utils.UUIDGen
 import java.text.SimpleDateFormat
 import java.util.{TimeZone, Calendar, UUID, Date}
 import org.apache.commons.lang.time.DateUtils
-import com.netflix.astyanax.retry.BoundedExponentialBackoff
 import com.netflix.astyanax.model.ConsistencyLevel
+import com.netflix.astyanax.retry.ExponentialBackoff
 
 /**
  * Author: robin
@@ -108,7 +103,7 @@ class CassandraBackedStats(keyspace:Keyspace,
       null
 
     keyspace.prepareColumnMutation[String, UUID](COLUMN_FAMILY, key, colName)
-      .withRetryPolicy(new BoundedExponentialBackoff(250, 5000, 10))
+      .withRetryPolicy(new ExponentialBackoff(250, 10))
       .setConsistencyLevel(ConsistencyLevel.CL_ANY)
       .putValue(colValue, ttl)
       .executeAsync()
