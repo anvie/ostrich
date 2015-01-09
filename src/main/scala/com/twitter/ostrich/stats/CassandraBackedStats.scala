@@ -56,8 +56,9 @@ class CassandraBackedStats(keyspace:Keyspace,
 
   private def dateNowF = df.format(new Date())
 
-
   def postfix(key:String) = "-" + dateNowF
+
+  def getLastCollection = lastCollection
 
   /**
    * Implement the periodic event here.
