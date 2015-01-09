@@ -19,13 +19,15 @@ package admin
 
 import java.io.{InputStream, OutputStream}
 import java.net.{InetSocketAddress, Socket, URI}
-import scala.io.Source
+import java.util.Properties
+
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import com.twitter.conversions.time._
 import com.twitter.logging.Logger
-import com.twitter.util.{Duration, Time, Return, Throw}
-import java.util.Properties
-import stats.{StatsCollection, Stats}
+import com.twitter.ostrich.stats.{Stats, StatsCollection}
+import com.twitter.util.{Duration, Return, Throw}
+
+import scala.io.Source
 
 /**
  * Custom handler interface for the admin web site. The standard `render` calls are implemented in
@@ -64,7 +66,7 @@ abstract class CustomHttpHandler extends HttpHandler {
     try {
       Source.fromInputStream(stream).mkString
     } catch {
-      case e =>
+      case e:Throwable =>
         log.error(e, "Unable to load Resource from Classpath: %s", name)
         throw e
     }
@@ -141,7 +143,7 @@ object CgiRequestHandler {
 }
 
 abstract class CgiRequestHandler extends CustomHttpHandler {
-  import CgiRequestHandler._
+  import com.twitter.ostrich.admin.CgiRequestHandler._
 
   private val log = Logger(getClass.getName)
 
@@ -153,7 +155,7 @@ abstract class CgiRequestHandler extends CustomHttpHandler {
 
       handle(exchange, path, parameters)
     } catch {
-      case e =>
+      case e:Throwable =>
         render("exception while processing request: " + e, exchange, 500)
         log.error(e, "Exception processing admin http request")
     }
@@ -281,7 +283,7 @@ class TracingHandler extends CgiRequestHandler {
         return
       }
     } catch {
-      case _ =>
+      case _:Throwable =>
         render("Could not initialize Finagle tracing classes. Possibly old version of Finagle.",
           exchange)
         return

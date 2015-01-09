@@ -1,10 +1,10 @@
 import java.text.SimpleDateFormat
+
+import sbt.Keys._
 import sbt._
-import Keys._
-import Tests._
 
 object Ostrich extends Build {
-  val libVersion = "9.4.1-SNAPSHOT"
+  val libVersion = "9.4.2-SNAPSHOT"
   val utilVersion = "6.13.0"
 
   val sharedSettings = Seq(

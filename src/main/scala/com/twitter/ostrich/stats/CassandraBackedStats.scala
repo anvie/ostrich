@@ -12,20 +12,16 @@ import com.netflix.astyanax.model.ConsistencyLevel
 import com.netflix.astyanax.retry.ExponentialBackoff
 
 /**
- * Author: robin
- * Date: 7/24/13
- * Time: 11:10 AM
+ * Author: robin (r@nosql.asia)
  *
  */
 
 
 /**
  * Create cassandra backed stats collection.
-// * @param clusterName cassandra cluster name.
-// * @param keyspaceName cassandra keyspace name.
-// * @param seeds cassandra seeds.
+ * @param keyspace cassandra keyspace name.
+ * @param TTL record's time to live in seconds.
  * @param period period.
- * @param TTL time to live.
  */
 class CassandraBackedStatsFactory(val keyspace:Keyspace, val TTL:Int,
                                   val period:Duration) extends StatsReporterFactory {
@@ -36,11 +32,9 @@ class CassandraBackedStatsFactory(val keyspace:Keyspace, val TTL:Int,
 
 /**
  * Save stats into cassandra database.
-// * @param clusterName cassandra cluster name.
-// * @param keyspaceName cassandra keyspace name.
-// * @param seeds cassandra seeds.
+ * @param keyspace cassandra keyspace name.
  * @param period period.
- * @param TTL time to live.
+ * @param TTL record's time to live in seconds.
  * @param collection collection.
  */
 class CassandraBackedStats(keyspace:Keyspace,
@@ -95,7 +89,6 @@ class CassandraBackedStats(keyspace:Keyspace,
   }
 
   def insert(key:String, colName:UUID, colValue:Double){
-//    logger.info("inserting key: %s, colName: %s, colValue: %s".format(key, colName, colValue))
 
     val ttl:java.lang.Integer = if (TTL > 0)
       TTL
